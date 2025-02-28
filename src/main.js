@@ -2,10 +2,6 @@ import './style.css';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as CANNON from 'cannon-es'; // Import Cannon.js
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-
-
 
 //-------------------------------------------------------
 // Setup Three.js scene
@@ -32,6 +28,28 @@ directionalLight.position.set(1, 1, 1);
 scene.add(directionalLight);
 //-------------------------------------------------------
 
+
+//-------------------------------------------------------
+//Audio
+const listener = new THREE.AudioListener();
+camera.add(listener);
+
+const audioLoader = new THREE.AudioLoader();
+const sound1 = new THREE.Audio(listener);
+const sound2 = new THREE.Audio(listener);
+
+audioLoader.load('/sounds/low.mp3', (buffer) => {
+  sound1.setBuffer(buffer);
+  sound1.setVolume(2);
+});
+
+audioLoader.load('/sounds/high.mp3', (buffer) => {
+  sound2.setBuffer(buffer);
+  sound2.setVolume(2);
+});
+//-------------------------------------------------------
+
+
 //-------------------------------------------------------
 // Setup Cannon.js physics world
 const world = new CANNON.World();
@@ -45,8 +63,10 @@ const gltfLoader = new GLTFLoader();
 gltfLoader.load('/assets/board.gltf', (gltf) => {
   plinkoBoard = gltf.scene;
   scene.add(plinkoBoard);
-
   gltf.scene.rotation.y = Math.PI / 1;
+
+  let pinIndex = 0;
+
   gltf.scene.traverse((child) => {
     if (child.isMesh && child.name.includes("Cylinder")) { // Assuming "pin" is in the name
       const { x, y, z } = child.position;
@@ -54,13 +74,15 @@ gltfLoader.load('/assets/board.gltf', (gltf) => {
 
       child.castShadow = true;
       child.receiveShadow = true;
-      createPin(x, y, z, radius);
+      createPin(x, y, z, radius, pinIndex);
+
+
+      pinIndex++;
     }
 
-    console.log(child)
   });
 
-  console.log('**', plinkoBoard)
+  // console.log('**', plinkoBoard)
 
   //-------------------------------------------------------
   // Compute bounding box
@@ -70,20 +92,7 @@ gltfLoader.load('/assets/board.gltf', (gltf) => {
 
 
 
-  console.log("Board Width:", boardWidth, "Board Height:", boardHeight);
-  //-------------------------------------------------------
-
-  //-------------------------------------------------------
-  // Create multiple balls
-  // for (let i = 0; i < 5; i++) {
-  //   console.log(bbox)
-  //   // const x = THREE.MathUtils.randFloat(bbox.min.x + 1, bbox.max.x - 1); // Keep within side walls
-  //   const x = Math.random() * -3;
-  //   const y = bbox.max.y;
-  //   const z = bbox.min.z;
-  //   console.log(y, '----', z)
-  //   createBall(x, y, z, 0.4, 0xffffff);
-  // }
+  // console.log("Board Width:", boardWidth, "Board Height:", boardHeight);
   //-------------------------------------------------------
 
 
@@ -104,7 +113,7 @@ gltfLoader.load('/assets/board.gltf', (gltf) => {
   createWall(0, -1, 0, boardWidth, 1, 20);
 
 
-  bucketCatcher(boardHeight);
+  createBuckets();
 });
 
 // Camera position
@@ -112,19 +121,42 @@ camera.position.set(0, 2, 17);
 camera.lookAt(0, 3, 0);
 //-------------------------------------------------------
 
+let wallet = 0;
+
 
 //-------------------------------------------------------
-function bucketCatcher(boardHeight) {
+function createBucket() {
   gltfLoader.load('/assets/obj_winBox.glb', (gltf) => {
     const catcher = gltf.scene;
-    catcher.position.set(0, 2, 1); // Adjust position as needed
-    catcher.scale.set(8, 8, 1); // Adjust size if necessary
-    catcher.rotation.y = 23.2;
+    catcher.position.set(0, 1.5, .5); // Adjust position as needed
+    catcher.scale.set(8, 3, 5); // Adjust size if necessary
+    catcher.rotation.y = -Math.PI / 2;
     scene.add(catcher);
-
-    console.log("Catcher loaded:", catcher);
   });
 }
+//-------------------------------------------------------
+
+//-------------------------------------------------------
+function createBuckets() {
+  gltfLoader.load('/assets/obj_winBox.glb', (gltf) => {
+    const bucketSpacing = 3; // Adjust the spacing between buckets
+    const startX = -6; // Adjust starting position for first bucket
+    const buckets = [];
+
+    for (let i = 0; i < 5; i++) {
+      const catcher = gltf.scene.clone(); // Clone the original bucket model
+      catcher.position.set(startX + i * bucketSpacing, 1.5, 0.5); // Set position
+      catcher.scale.set(8, 3, 5); // Keep same scale
+      catcher.rotation.y = -Math.PI / 2; // Rotate properly
+      scene.add(catcher);
+      buckets.push(catcher);
+    }
+  });
+}
+
+// Call the function to create the buckets
+createBuckets();
+
 //-------------------------------------------------------
 
 
@@ -163,11 +195,34 @@ function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
   // body.applyForce(new CANNON.Vec3(0, -500, 0), body.position);
 
 
+
+
+
   body.collisionFilterGroup = 2;
   body.collisionFilterMask = 1;
   body.velocity.z = 0;
 
   world.addBody(body);
+
+  body.addEventListener("collide", (event) => {
+    const otherBody = event.body; // The object it collided with
+    // console.log(event, '^^^^^^^^', otherBody.mesh);
+
+    if (otherBody.mesh) {
+      const sound = otherBody.mesh.userData.sound;
+      const soundBuffer = otherBody.mesh.userData.sound.buffer; // Get the buffer from the pin's sound
+      wallet++;
+      if (soundBuffer) {
+        const newSound = new THREE.Audio(listener); // Create a new audio instance
+        newSound.setBuffer(soundBuffer);
+        newSound.setVolume(2);
+        newSound.setLoop(false);
+        newSound.play(); // Play a separate sound instance
+      }
+      console.log('$', wallet);
+    }
+  });
+
   ballBodies.push(body);
 }
 //-------------------------------------------------------
@@ -202,7 +257,8 @@ function createWall(x, y, z, width, height, depth, rotationY = 0) {
 
   // scene.add(mesh); // Add to Three.js scene
 
-  console.log('ROTATE', mesh)
+  // console.log('ROTATE', mesh)
+
 
   // Store wall reference for updating in animation loop
   return { body, mesh };
@@ -211,7 +267,7 @@ function createWall(x, y, z, width, height, depth, rotationY = 0) {
 
 //-------------------------------------------------------
 // Function to create Plinko pins as physics objects
-function createPin(x, y, z, radius) {
+function createPin(x, y, z, radius, pinIndex) {
   // Create Cannon.js physics body
   const shape = new CANNON.Sphere(radius * 1.3);
   const body = new CANNON.Body({
@@ -220,6 +276,7 @@ function createPin(x, y, z, radius) {
     position: new CANNON.Vec3(x, y, z),
     material: bouncyPin,
   });
+  body.userData = { type: "pin" };
   world.addBody(body);
 
   // Create a visual representation
@@ -230,8 +287,16 @@ function createPin(x, y, z, radius) {
   scene.add(mesh);
 
 
+  // Attach sound to pin
+  const sound = new THREE.PositionalAudio(listener);
+  sound.setBuffer(pinIndex < 5 ? sound1.buffer : sound2.buffer); // Random sound variation
+  sound.setVolume(0.5);
+  sound.setLoop(false)
+  mesh.add(sound);
+  mesh.userData.sound = sound;
+  body.mesh = mesh
 
-  console.log(`Plinko Pin added at (${x}, ${y}, ${z})`);
+  // console.log(`Plinko Pin added at (${x}, ${y}, ${z})`);
   return { body, mesh }
 }
 //-------------------------------------------------------
@@ -286,11 +351,11 @@ function animate() {
     ball.position.copy(ballBodies[i].position);
     ball.quaternion.copy(ballBodies[i].quaternion);
   });
-
   renderer.render(scene, camera);
 }
 animate();
 //-------------------------------------------------------
+
 
 //-------------------------------------------------------
 // Handle window resize
