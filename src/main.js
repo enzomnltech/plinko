@@ -114,14 +114,21 @@ gltfLoader.load('/assets/board.gltf', (gltf) => {
 
 
   createBuckets();
+  createButton(0, .5, 14, "Add Ball", () => {
+    createBall(0, 200, 0);
+  });
+
+  createCoin(-2, 1, 0);
+
 });
 
 // Camera position
-camera.position.set(0, 2, 17);
+camera.position.set(0, 22, 17);
 camera.lookAt(0, 3, 0);
 //-------------------------------------------------------
 
 let wallet = 0;
+const bucketBodies = [];
 
 
 //-------------------------------------------------------
@@ -139,24 +146,65 @@ function createBucket() {
 //-------------------------------------------------------
 function createBuckets() {
   gltfLoader.load('/assets/obj_winBox.glb', (gltf) => {
-    const bucketSpacing = 3; // Adjust the spacing between buckets
-    const startX = -6; // Adjust starting position for first bucket
-    const buckets = [];
+    const bucketSpacing = 3;      // Adjust spacing between buckets
+    const startX = -6;            // Starting position for first bucket
 
     for (let i = 0; i < 5; i++) {
-      const catcher = gltf.scene.clone(); // Clone the original bucket model
-      catcher.position.set(startX + i * bucketSpacing, 1.5, 0.5); // Set position
-      catcher.scale.set(8, 3, 5); // Keep same scale
-      catcher.rotation.y = -Math.PI / 2; // Rotate properly
+      const catcher = gltf.scene.clone();  // Clone the bucket model
+      catcher.position.set(startX + i * bucketSpacing, 3, 0);  // Position the bucket
+      catcher.scale.set(8, 3, 5);  // Scale the bucket
+      catcher.rotation.y = -Math.PI / 2;  // Rotate correctly
       scene.add(catcher);
-      buckets.push(catcher);
+
+      // Create Cannon.js body for the bucket
+      const body = new CANNON.Body({
+        mass: 0,  // Static object
+      });
+
+
+      const floorBucket = new CANNON.Material("floorBucket")
+      // 🟩 Create individual wall shapes and positions
+      const leftWall = new CANNON.Box(new CANNON.Vec3(0.4, .8, 1));  // Thin vertical left wall
+      const rightWall = new CANNON.Box(new CANNON.Vec3(0.4, .8, 1)); // Thin vertical right wall
+      const bottomWall = new CANNON.Box(new CANNON.Vec3(2, 0.2, 1));    // Thin horizontal bottom wall
+
+      body.addShape(leftWall, new CANNON.Vec3(-1.5, -1.3, 1));    // Left of the bucket
+      body.addShape(rightWall, new CANNON.Vec3(1.5, -1.3, 1));    // Right of the bucket
+      body.addShape(bottomWall, new CANNON.Vec3(0, -2, 0));  // Bottom of the bucket
+
+      bottomWall.material = floorBucket;
+      // Set body position to match the bucket model
+      body.position.set(catcher.position.x, catcher.position.y, catcher.position.z);
+      world.addBody(body);
+      bucketBodies.push(body);  // Store for future use
+
+
+      // Create visible wireframes for each wall
+      createWireframeBox(new THREE.Vector3(0.4, 1, 1), new THREE.Vector3(-1.5, -1.3, 1), catcher);   // Left wall
+      createWireframeBox(new THREE.Vector3(0.4, 1, 1), new THREE.Vector3(1.5, -1.3, 1), catcher);    // Right wall
+      createWireframeBox(new THREE.Vector3(1, 0.1, 1), new THREE.Vector3(0, -1.5, 0), catcher);   // Bottom wall
+      body.floorBucket = floorBucket;
+      body.floorBucket.multi = i+1;
+      body.bottomWall = bottomWall
+
     }
   });
 }
 
-// Call the function to create the buckets
-createBuckets();
+//-------------------------------------------------------
 
+
+//-------------------------------------------------------
+const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00, visible: false });
+
+function createWireframeBox(size, position, catcher) {
+  const boxGeometry = new THREE.BoxGeometry(size.x * 2, size.y * 2, size.z * 2);  // Double size for Three.js
+  const edges = new THREE.EdgesGeometry(boxGeometry);
+  const wireframe = new THREE.LineSegments(edges, wireframeMaterial);
+  wireframe.position.copy(position);  // Position the wireframe correctly
+  wireframe.position.add(catcher.position);  // Offset by bucket's position
+  scene.add(wireframe);
+}
 //-------------------------------------------------------
 
 
@@ -194,10 +242,6 @@ function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
   // body.velocity.set(5, 2, 0);
   // body.applyForce(new CANNON.Vec3(0, -500, 0), body.position);
 
-
-
-
-
   body.collisionFilterGroup = 2;
   body.collisionFilterMask = 1;
   body.velocity.z = 0;
@@ -221,10 +265,70 @@ function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
       }
       console.log('$', wallet);
     }
+
+    if (otherBody.bottomMaterial){
+      // console.log(otherBody.floorBucket);
+      console.log('ball', otherBody.bottomMaterial);
+
+      if (otherBody.floorBucket && otherBody.floorBucket.name === "floorBucket") {
+
+        // Remove ball mesh and physics body
+        scene.remove(ball);
+        world.removeBody(body);
+
+        // Dispose of geometry and material to free memory
+        geometry.dispose();
+        material.dispose();
+
+        console.log("Ball deleted on floor collision!");
+
+      }
+    }
+
   });
 
   ballBodies.push(body);
 }
+//-------------------------------------------------------
+
+
+//-------------------------------------------------------
+const coins = []
+const coinBodies = [];
+function createCoin(x, y, z, radius = 0.1) {
+  const coinGeometry = new THREE.CylinderGeometry(.5, .5, 0.2, 32); // (radiusTop, radiusBottom, height, segments)
+  const coinMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffd700, // Gold color
+    metalness: 0.8,
+    roughness: 0.3,
+  });
+
+  const coin = new THREE.Mesh(coinGeometry, coinMaterial);
+  coin.position.set(x, y, z); // Set position
+  coin.cast = true;
+  coin.receiveShadow = true;
+  coin.rotation.y = Math.PI / 2; // Lay it flat
+  scene.add(coin);
+  coins.push(coin);
+
+  //-------------------------------------------------------
+  // Cannon.js physics body
+  const shape = new CANNON.Sphere(radius);
+  const body = new CANNON.Body({
+    mass: 1, // Dynamic object
+    shape,
+    position: new CANNON.Vec3(x, y, z),
+    linearDamping: 0,
+  });
+  //-------------------------------------------------------
+
+  body.collisionFilterGroup = 2;
+  body.collisionFilterMask = 1;
+
+  world.addBody(body);
+  coinBodies.push(body);
+}
+
 //-------------------------------------------------------
 
 
@@ -318,10 +422,6 @@ function createButton(x, y, z, text = "Click Me", onClick) {
 }
 
 //-------------------------------------------------------
-// createButton(-1, 0, 13, "Add Balls");
-createButton(0, .5, 14, "Add Ball", () => {
-  createBall(0, 200, 0);
-});
 
 
 //-------------------------------------------------------
@@ -329,11 +429,10 @@ const bouncyBall = new CANNON.Material("bouncyBall");
 const bouncyPin = new CANNON.Material("bouncyPin");
 
 const contactMaterial = new CANNON.ContactMaterial(bouncyBall, bouncyPin, {
-  friction: 4,      // Low friction
-  restitution: 3,   // High bounce
+  friction: 2,      // Low friction
+  restitution: 2,   // High bounce
 });
 world.addContactMaterial(contactMaterial);
-
 
 //-------------------------------------------------------
 
@@ -351,6 +450,18 @@ function animate() {
     ball.position.copy(ballBodies[i].position);
     ball.quaternion.copy(ballBodies[i].quaternion);
   });
+
+  coins.forEach((coin, i) => {
+    coin.position.copy(coinBodies[i].position);
+    coin.quaternion.copy(coinBodies[i].quaternion);
+  });
+
+  // buckets.forEach((bucket, i) => {
+  //   bucket.position.copy(bucketBodies[i].position);
+  //   bucket.quaternion.copy(bucketBodies[i].quaternion);
+  // });
+
+
   renderer.render(scene, camera);
 }
 animate();
@@ -383,7 +494,8 @@ window.addEventListener("click", (event) => {
   for (let intersect of intersects) {
     if (intersect.object.userData.isButton) {
       console.log("Button Clicked!");
-      createBall(Math.floor(Math.random() * (1.5 - (-1.5) + 1)) + (-1.5), 14, 0, 0.4, 0xffffff); // Example: Drop a ball
+      const randomX = Math.random() * (1.5 - (-1.5)) + (-1.5);  // Generates a random decimal between -1.5 and 1.5
+      createBall(randomX, 14, 0, 0.4, 0xffffff);
     }
   }
 });
