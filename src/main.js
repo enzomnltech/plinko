@@ -118,12 +118,12 @@ gltfLoader.load('/assets/board.gltf', (gltf) => {
     createBall(0, 200, 0);
   });
 
-  createCoin(-2, 1, 0);
+  createCoin(0, 1, 0);
 
 });
 
 // Camera position
-camera.position.set(0, 22, 17);
+camera.position.set(0, 2, 17);
 camera.lookAt(0, 3, 0);
 //-------------------------------------------------------
 
@@ -164,12 +164,14 @@ function createBuckets() {
 
       const floorBucket = new CANNON.Material("floorBucket")
       // 🟩 Create individual wall shapes and positions
-      const leftWall = new CANNON.Box(new CANNON.Vec3(0.4, .8, 1));  // Thin vertical left wall
-      const rightWall = new CANNON.Box(new CANNON.Vec3(0.4, .8, 1)); // Thin vertical right wall
+      createWall(-catcher.position.x-1.5, 1.5, 0, .2, 1, 3); // Left wall
+      // createWall(-catcher.position.x+1.1, 1.3, 0, .1, 1, 3,Math.PI/1.3); // Left wall
+      // const leftWall = new CANNON.Box(new CANNON.Vec3(0.4, .8, 1));  // Thin vertical left wall
+      // const rightWall = new CANNON.Box(new CANNON.Vec3(0.4, .8, 1)); // Thin vertical right wall
       const bottomWall = new CANNON.Box(new CANNON.Vec3(2, 0.2, 1));    // Thin horizontal bottom wall
 
-      body.addShape(leftWall, new CANNON.Vec3(-1.5, -1.3, 1));    // Left of the bucket
-      body.addShape(rightWall, new CANNON.Vec3(1.5, -1.3, 1));    // Right of the bucket
+      // body.addShape(leftWall, new CANNON.Vec3(-1.5, -1.3, 1));    // Left of the bucket
+      // body.addShape(rightWall, new CANNON.Vec3(1.5, -1.3, 1));    // Right of the bucket
       body.addShape(bottomWall, new CANNON.Vec3(0, -2, 0));  // Bottom of the bucket
 
       bottomWall.material = floorBucket;
@@ -180,12 +182,14 @@ function createBuckets() {
 
 
       // Create visible wireframes for each wall
-      createWireframeBox(new THREE.Vector3(0.4, 1, 1), new THREE.Vector3(-1.5, -1.3, 1), catcher);   // Left wall
-      createWireframeBox(new THREE.Vector3(0.4, 1, 1), new THREE.Vector3(1.5, -1.3, 1), catcher);    // Right wall
+      // createWireframeBox(new THREE.Vector3(0.4, 1, 1), new THREE.Vector3(-1.5, -1.3, 1), catcher);   // Left wall
+      // createWireframeBox(new THREE.Vector3(0.4, 1, 1), new THREE.Vector3(1.5, -1.3, 1), catcher);    // Right wall
       createWireframeBox(new THREE.Vector3(1, 0.1, 1), new THREE.Vector3(0, -1.5, 0), catcher);   // Bottom wall
+
+
       body.floorBucket = floorBucket;
-      body.floorBucket.multi = i+1;
-      body.bottomWall = bottomWall
+      body.floorBucket.multiplier = i+1;
+      body.bottomWall = bottomWall;
 
     }
   });
@@ -211,7 +215,7 @@ function createWireframeBox(size, position, catcher) {
 //-------------------------------------------------------
 // Create ball function with physics
 const balls = [];
-const ballBodies = [];
+let ballBodies = [];
 
 function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
 
@@ -266,24 +270,41 @@ function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
       console.log('$', wallet);
     }
 
-    if (otherBody.bottomMaterial){
-      // console.log(otherBody.floorBucket);
-      console.log('ball', otherBody.bottomMaterial);
 
-      if (otherBody.floorBucket && otherBody.floorBucket.name === "floorBucket") {
 
-        // Remove ball mesh and physics body
+    if (otherBody.floorBucket && otherBody.floorBucket.name === "floorBucket") {
+
+
+      const floorMultiplier = Number(otherBody.floorBucket.mutliplier);
+      console.log('multi is:',otherBody.floorBucket.multiplier);
+      console.log(Number(floorMultiplier)+ Number(wallet));
+      console.log('wallet:' ,wallet);
+      // wallet = Number(wallet) + floorMultiplier ;
+
+      if(floorMultiplier >0){
+        wallet = wallet + floorMultiplier;
+      }
+
+      const { x, y, z } = ball.position;
+
+      // Create a coin at the ball's last position
+      createCoin(x, 1, 0);
+
+      // setTimeout(() => {
         scene.remove(ball);
         world.removeBody(body);
 
         // Dispose of geometry and material to free memory
         geometry.dispose();
         material.dispose();
+        // Remove ball mesh and physics body
+      // }, 4000);
+      console.log('$', wallet);
 
-        console.log("Ball deleted on floor collision!");
 
-      }
+
     }
+
 
   });
 
@@ -443,13 +464,21 @@ world.addContactMaterial(contactMaterial);
 function animate() {
   requestAnimationFrame(animate);
 
-  // Step the physics world
   world.step(1 / 60);
   // Sync Three.js ball positions with Cannon.js physics bodies
+  // balls.forEach((ball, i) => {
+  //   ball.position.copy(ballBodies[i].position);
+  //   ball.quaternion.copy(ballBodies[i].quaternion);
+  // });
+
   balls.forEach((ball, i) => {
-    ball.position.copy(ballBodies[i].position);
-    ball.quaternion.copy(ballBodies[i].quaternion);
+    const ballBody = ballBodies[i];
+    if (ballBody) {
+      ball.position.copy(ballBody.position);
+      ball.quaternion.copy(ballBody.quaternion);
+    }
   });
+
 
   coins.forEach((coin, i) => {
     coin.position.copy(coinBodies[i].position);
