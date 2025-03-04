@@ -68,29 +68,23 @@ gltfLoader.load('/assets/board.gltf', (gltf) => {
   let pinIndex = 0;
 
   gltf.scene.traverse((child) => {
-    if (child.isMesh && child.name.includes("Cylinder")) { // Assuming "pin" is in the name
+
+    if (child.isMesh && child.name.includes("Cylinder")) {
       const { x, y, z } = child.position;
       const radius = child.scale.x / 2; // Assuming uniform scaling
-
       child.castShadow = true;
       child.receiveShadow = true;
-      createPin(x, y, z, radius, pinIndex);
-
-
+      createPin(-x, y, z, radius, pinIndex);
       pinIndex++;
     }
 
   });
-
-  // console.log('**', plinkoBoard)
 
   //-------------------------------------------------------
   // Compute bounding box
   const bbox = new THREE.Box3().setFromObject(plinkoBoard);
   const boardWidth = bbox.max.x - bbox.min.x;
   const boardHeight = bbox.max.y - bbox.min.y;
-
-
 
   // console.log("Board Width:", boardWidth, "Board Height:", boardHeight);
   //-------------------------------------------------------
@@ -430,7 +424,6 @@ function createPin(x, y, z, radius, pinIndex) {
   mesh.position.set(x, y, z);
   scene.add(mesh);
 
-
   // Attach sound to pin
   const sound = new THREE.PositionalAudio(listener);
   sound.setBuffer(pinIndex < 5 ? sound1.buffer : sound2.buffer); // Random sound variation
@@ -439,8 +432,6 @@ function createPin(x, y, z, radius, pinIndex) {
   mesh.add(sound);
   mesh.userData.sound = sound;
   body.mesh = mesh
-
-  // console.log(`Plinko Pin added at (${x}, ${y}, ${z})`);
   return { body, mesh }
 }
 //-------------------------------------------------------
