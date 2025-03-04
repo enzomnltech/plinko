@@ -118,8 +118,6 @@ gltfLoader.load('/assets/board.gltf', (gltf) => {
     createBall(0, 200, 0);
   });
 
-  createCoin(0, 1, 0);
-
 });
 
 // Camera position
@@ -273,20 +271,10 @@ function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
 
 
     if (otherBody.floorBucket && otherBody.floorBucket.name === "floorBucket") {
-
-
       const floorMultiplier = Number(otherBody.floorBucket.mutliplier);
-      console.log('multi is:',otherBody.floorBucket.multiplier);
-      console.log(Number(floorMultiplier)+ Number(wallet));
-      console.log('wallet:' ,wallet);
       // wallet = Number(wallet) + floorMultiplier ;
 
-      if(floorMultiplier >0){
-        wallet = wallet + floorMultiplier;
-      }
-
       const { x, y, z } = ball.position;
-
       // Create a coin at the ball's last position
       createCoin(x, 1, 0);
 
@@ -300,8 +288,6 @@ function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
         // Remove ball mesh and physics body
       // }, 4000);
       console.log('$', wallet);
-
-
 
     }
 
@@ -332,7 +318,6 @@ function createCoin(x, y, z, radius = 0.1) {
   scene.add(coin);
   coins.push(coin);
 
-  //-------------------------------------------------------
   // Cannon.js physics body
   const shape = new CANNON.Sphere(radius);
   const body = new CANNON.Body({
@@ -341,13 +326,47 @@ function createCoin(x, y, z, radius = 0.1) {
     position: new CANNON.Vec3(x, y, z),
     linearDamping: 0,
   });
-  //-------------------------------------------------------
+
+
+  //-6 to -5.8 = +1
+  //-2.7 to -3.8 = +2
+  //.8 to -.6 = 3
+  //2.2 to 4 = 4
+  //6 to 5.5 = 5
+
+  switch (true) {
+    case x > -6 && x < -4.9:
+      wallet++;
+      console.log('Multiplier +1');
+      break;
+
+    case x > -4.2 && x < -2.4:
+      wallet += 2;
+      console.log('Multiplier +2');
+      break;
+
+    case x > -0.96 && x < 0.8:
+      wallet += 3;
+      console.log('Multiplier +3');
+      break;
+
+    case x > 2.1 && x < 4:
+      wallet += 4;
+      console.log('Multiplier +4');
+      break;
+
+    case x > 5.5 && x < 6:
+      wallet += 5;
+      console.log('Multiplier +5');
+      break;
+  }
 
   body.collisionFilterGroup = 2;
   body.collisionFilterMask = 1;
 
   world.addBody(body);
   coinBodies.push(body);
+
 }
 
 //-------------------------------------------------------
@@ -522,7 +541,6 @@ window.addEventListener("click", (event) => {
   const intersects = raycaster.intersectObjects(scene.children);
   for (let intersect of intersects) {
     if (intersect.object.userData.isButton) {
-      console.log("Button Clicked!");
       const randomX = Math.random() * (1.5 - (-1.5)) + (-1.5);  // Generates a random decimal between -1.5 and 1.5
       createBall(randomX, 14, 0, 0.4, 0xffffff);
     }
