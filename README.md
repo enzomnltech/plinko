@@ -11,6 +11,7 @@ Prototype project for a Plinko game.
 - ✅ Game Wallet display
 - ✅ Balls to coins conversion
 - ✅ Ball to Bucket $ Multiplier [1-5]
+- ✅ Random Audio for Collision of Ball to pins
 
 ## 🔧 Installation
 Follow these steps to set up the project locally.
