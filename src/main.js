@@ -53,7 +53,7 @@ audioLoader.load('/sounds/high.mp3', (buffer) => {
 //-------------------------------------------------------
 // Setup Cannon.js physics world
 const world = new CANNON.World();
-world.gravity.set(0, -9, 0); // Gravity pointing downwards
+world.gravity.set(0, -13, 0); // Gravity pointing downwards
 //-------------------------------------------------------
 
 //-------------------------------------------------------
@@ -108,20 +108,48 @@ gltfLoader.load('/assets/board.gltf', (gltf) => {
 
 
   createBuckets();
-  createButton(0, .5, 14, "Add Ball", () => {
+  createButton(0, .5, 12, "Add Ball", () => {
     createBall(0, 200, 0);
   });
 
 });
 
 // Camera position
-camera.position.set(0, 2, 17);
+camera.position.set(0, 3, 17);
 camera.lookAt(0, 3, 0);
 //-------------------------------------------------------
 
 let wallet = 0;
+let walletSprite;
 const bucketBodies = [];
 
+
+//-------------------------------------------------------
+function createWalletSprite() {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  context.font = '30px Arial';
+  context.fillStyle = 'white';
+  context.fillText(`$: ${wallet}`, 0, 30);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+  walletSprite = new THREE.Sprite(spriteMaterial);
+  walletSprite.position.set(13, 13, 0);
+  walletSprite.scale.set(10, 5, 1);  // Adjust scale to fit your scene
+
+  scene.add(walletSprite);
+}
+
+function updateWallet(points) {
+  wallet = points;
+  scene.remove(walletSprite);
+  createWalletSprite();
+}
+
+createWalletSprite();
+
+//-------------------------------------------------------
 
 //-------------------------------------------------------
 function createBucket() {
@@ -252,6 +280,7 @@ function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
       const sound = otherBody.mesh.userData.sound;
       const soundBuffer = otherBody.mesh.userData.sound.buffer; // Get the buffer from the pin's sound
       wallet++;
+      updateWallet(wallet);
       if (soundBuffer) {
         const newSound = new THREE.Audio(listener); // Create a new audio instance
         newSound.setBuffer(soundBuffer);
@@ -259,10 +288,7 @@ function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
         newSound.setLoop(false);
         newSound.play(); // Play a separate sound instance
       }
-      console.log('$', wallet);
     }
-
-
 
     if (otherBody.floorBucket && otherBody.floorBucket.name === "floorBucket") {
       const floorMultiplier = Number(otherBody.floorBucket.mutliplier);
@@ -281,8 +307,6 @@ function createBall(x, y, z, radius = 0.1, color = 0xff0000) {
         material.dispose();
         // Remove ball mesh and physics body
       // }, 4000);
-      console.log('$', wallet);
-
     }
 
 
@@ -354,6 +378,8 @@ function createCoin(x, y, z, radius = 0.1) {
       console.log('Multiplier +5');
       break;
   }
+
+  updateWallet(wallet);
 
   body.collisionFilterGroup = 2;
   body.collisionFilterMask = 1;
@@ -437,7 +463,7 @@ function createPin(x, y, z, radius, pinIndex) {
 //-------------------------------------------------------
 
 //-------------------------------------------------------
-function createButton(x, y, z, text = "Click Me", onClick) {
+function createButton(x, y, z, text = "Add Ball", onClick) {
   // Create a plane (button shape)
   const geometry = new THREE.PlaneGeometry(1, 0.5);
   const material = new THREE.MeshBasicMaterial({ color: 0x0B6623, side: THREE.DoubleSide });
@@ -445,12 +471,36 @@ function createButton(x, y, z, text = "Click Me", onClick) {
   button.position.set(x, y, z);
   scene.add(button);
 
+  // Create a canvas for text
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  canvas.width = 256;
+  canvas.height = 128;
 
+  // Draw text on the canvas
+  context.fillStyle = 'white';
+  context.font = '35px Arial';
+  context.textAlign = 'center';
+  context.fillText(text, canvas.width / 2, canvas.height / 2);
+  context.fillText('$1', canvas.width / 2, canvas.height / 1.1);
+
+  // Create a texture from the canvas
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+  const buttonSprite = new THREE.Sprite(spriteMaterial);
+
+  // Position and scale the sprite to fit the button
+  buttonSprite.scale.set(1, 0.5, 1); // Match button size
+  buttonSprite.position.set(0, 0.04, 0.01); // Slightly in front of the button
+
+  // Attach sprite to the button
+  button.add(buttonSprite);
 
   // Store button for interaction
   button.userData.isButton = true;
   button.userData.onClick = onClick;
 }
+
 
 //-------------------------------------------------------
 
@@ -534,6 +584,10 @@ window.addEventListener("click", (event) => {
     if (intersect.object.userData.isButton) {
       const randomX = Math.random() * (1.5 - (-1.5)) + (-1.5);  // Generates a random decimal between -1.5 and 1.5
       createBall(randomX, 14, 0, 0.4, 0xffffff);
+      if(wallet>0){
+        wallet--;
+        updateWallet(wallet);
+      }
     }
   }
 });
